@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **NEW**: Native support for `RunAgentInput.context` in ADK agents (#959)
+  - Context from AG-UI is automatically stored in session state under `_ag_ui_context` key
+  - Accessible in tools via `tool_context.state.get(CONTEXT_STATE_KEY, [])`
+  - Accessible in instruction providers via `ctx.state.get(CONTEXT_STATE_KEY, [])`
+  - For ADK 1.22.0+, context is also available via `RunConfig.custom_metadata['ag_ui_context']`
+  - Follows the pattern established by LangGraph's context handling for cross-framework consistency
+  - `CONTEXT_STATE_KEY` constant exported from package for easy access
+  - See `examples/other/context_usage.py` for usage examples
 - **NEW**: Convert Gemini thought summaries to AG-UI THINKING events (#951)
   - When using `ThinkingConfig(include_thoughts=True)` with Gemini 2.5+ models, thought summaries are now emitted as THINKING events
   - Backwards-compatible: gracefully degrades on older google-genai SDK versions without the `part.thought` attribute
@@ -33,6 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Thanks to @jplikesbikes for the contribution
 
 ### Fixed
+- **FIXED**: Duplicate `TOOL_CALL_START` events with google-adk >= 1.22.0 (issue #968)
+  - google-adk 1.22.0 enables `PROGRESSIVE_SSE_STREAMING` by default, which sends function call "previews" in partial events
+  - The middleware now skips function calls from `partial=True` events, only processing confirmed calls (`partial=False`)
+  - Backwards-compatible: uses `getattr(adk_event, 'partial', False)` for older google-adk versions without the attribute
+- **FIXED**: `DatabaseSessionService` compatibility for HITL (human-in-the-loop) tool workflows (issue #957)
+  - Added `invocation_id` to FunctionResponse events - required by `DatabaseSessionService` for event tracking
+  - Session is now refreshed after `update_session_state` to prevent "stale session" errors from optimistic locking
+  - Both code paths (tool results with user message, and tool results only) now properly persist events
+  - Thanks to @lakshminarasimmanv for the contribution
 - **FIXED**: Text message events not emitted when non-streaming response includes client function call (issue #906)
   - In non-streaming mode, when an ADK event contained both text and an LRO (long-running) tool call, text was skipped entirely
   - Added `translate_text_only()` method to EventTranslator to handle text extraction for LRO events
