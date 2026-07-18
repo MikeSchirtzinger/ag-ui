@@ -104,6 +104,12 @@ impl AgentState for RecipeSnapshot {}
 
 pub struct RecipeSubscriber;
 
+impl Default for RecipeSubscriber {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RecipeSubscriber {
     pub fn new() -> Self {
         Self

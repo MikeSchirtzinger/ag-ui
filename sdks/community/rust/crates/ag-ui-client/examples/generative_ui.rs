@@ -13,17 +13,12 @@ use ag_ui_client::core::types::Message;
 use ag_ui_client::subscriber::{AgentSubscriber, AgentSubscriberParams};
 use ag_ui_client::{Agent, HttpAgent};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum StepStatus {
+    #[default]
     Pending,
     Completed,
-}
-
-impl Default for StepStatus {
-    fn default() -> Self {
-        StepStatus::Pending
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -51,6 +46,12 @@ pub struct Plan {
 impl AgentState for Plan {}
 
 pub struct GenerativeUiSubscriber;
+
+impl Default for GenerativeUiSubscriber {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl GenerativeUiSubscriber {
     pub fn new() -> Self {

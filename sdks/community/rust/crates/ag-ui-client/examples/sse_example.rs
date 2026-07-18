@@ -1,15 +1,6 @@
 use ag_ui_client::sse::SseResponseExt;
 use futures::StreamExt;
-use serde::Deserialize;
 use std::error::Error;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum EventType {
-    Ping,
-    Update,
-    Message,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
