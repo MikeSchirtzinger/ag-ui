@@ -11,6 +11,9 @@ pub struct FunctionCall {
 }
 
 /// Message role.
+///
+/// `Activity` is part of the protocol's role vocabulary. The separate
+/// `ActivityMessage` shape is not part of this scoped port.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -19,6 +22,7 @@ pub enum Role {
     Assistant,
     User,
     Tool,
+    Activity,
 }
 
 // Utility methods for serde defaults
@@ -278,6 +282,14 @@ impl Message {
                 content: content.as_ref().to_string(),
                 tool_call_id: ToolCallId::random(),
                 error: None,
+            },
+            // This string-only constructor predates the spec's structured
+            // `ActivityMessage` shape and cannot supply its activity type.
+            Role::Activity => Self::Assistant {
+                id: id.into(),
+                content: Some(content.as_ref().to_string()),
+                name: None,
+                tool_calls: None,
             },
         }
     }
