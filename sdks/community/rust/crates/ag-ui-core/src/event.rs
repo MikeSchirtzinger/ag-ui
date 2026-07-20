@@ -348,9 +348,23 @@ pub enum RunFinishedOutcome {
     Success,
     /// The run paused, awaiting resolution of one or more interrupts.
     Interrupt {
-        /// Must contain at least one interrupt.
+        /// Must contain at least one interrupt — see [`RunFinishedOutcome::validate`].
         interrupts: Vec<Interrupt>,
     },
+}
+
+impl RunFinishedOutcome {
+    /// Validate spec invariants not expressible in the type alone: an
+    /// `Interrupt` outcome must carry at least one interrupt.
+    pub fn validate(&self) -> Result<(), EventValidationError> {
+        match self {
+            RunFinishedOutcome::Success => Ok(()),
+            RunFinishedOutcome::Interrupt { interrupts } if interrupts.is_empty() => {
+                Err(EventValidationError::EmptyInterrupts)
+            }
+            RunFinishedOutcome::Interrupt { .. } => Ok(()),
+        }
+    }
 }
 
 /// Event indicating that a run has encountered an error.
@@ -749,6 +763,8 @@ pub enum EventValidationError {
     EmptyDelta,
     #[error("Invalid event format: {0}")]
     InvalidFormat(String),
+    #[error("Interrupt outcome must contain at least one interrupt")]
+    EmptyInterrupts,
 }
 
 /// Validate text message content event

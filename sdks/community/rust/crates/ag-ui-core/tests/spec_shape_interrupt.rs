@@ -1,7 +1,7 @@
 use ag_ui_core::JsonValue;
 use ag_ui_core::event::{
-    BaseEvent, Event as AgUiEvent, RunFinishedEvent, RunFinishedOutcome, RunStartedEvent,
-    TextMessageChunkEvent, TextMessageStartEvent,
+    BaseEvent, Event as AgUiEvent, EventValidationError, RunFinishedEvent, RunFinishedOutcome,
+    RunStartedEvent, TextMessageChunkEvent, TextMessageStartEvent,
 };
 use ag_ui_core::types::{Interrupt, MessageId, Role, RunAgentInput, RunId, ThreadId, ToolCallId};
 use serde_json::json;
@@ -117,6 +117,22 @@ fn run_finished_outcomes_roundtrip() {
         AgUiEvent::RunFinished(event) => assert_eq!(event.outcome, None),
         other => panic!("expected RunFinished, got {other:?}"),
     }
+}
+
+#[test]
+fn run_finished_outcome_validation_accepts_valid_and_rejects_empty_interrupts() {
+    assert!(RunFinishedOutcome::Success.validate().is_ok());
+
+    let interrupt = RunFinishedOutcome::Interrupt {
+        interrupts: vec![Interrupt::new("int-1", "needs_approval")],
+    };
+    assert!(interrupt.validate().is_ok());
+
+    let empty = RunFinishedOutcome::Interrupt { interrupts: vec![] };
+    assert!(matches!(
+        empty.validate(),
+        Err(EventValidationError::EmptyInterrupts)
+    ));
 }
 
 #[test]
