@@ -56,6 +56,25 @@ pub enum EventType {
     StepStarted,
     /// Event indicating that a step has finished
     StepFinished,
+
+    // ==================== Reasoning Events (spec catch-up 2026-07) ====================
+    // The TS SDK deprecates THINKING_START / THINKING_END / THINKING_TEXT_MESSAGE_*
+    // in favor of these (removal planned for 1.0.0). Both families are kept side
+    // by side here — see the crate-level catch-up notes for the deprecation map.
+    /// Event indicating the start of a reasoning message
+    ReasoningStart,
+    /// Event indicating the start of a reasoning message's text content
+    ReasoningMessageStart,
+    /// Event containing a piece of reasoning message content
+    ReasoningMessageContent,
+    /// Event indicating the end of a reasoning message's text content
+    ReasoningMessageEnd,
+    /// Event containing a complete or partial reasoning message chunk
+    ReasoningMessageChunk,
+    /// Event indicating the end of a reasoning message
+    ReasoningEnd,
+    /// Event containing an encrypted reasoning value (opaque provider payload)
+    ReasoningEncryptedValue,
 }
 
 /// Base event for all events in the Agent User Interaction Protocol.
@@ -330,6 +349,118 @@ pub struct StepFinishedEvent {
     pub step_name: String,
 }
 
+// ==================== Reasoning Event Structs (spec catch-up 2026-07) ====================
+//
+// These are the AG-UI spec's replacement for THINKING_START / THINKING_END /
+// THINKING_TEXT_MESSAGE_* (deprecated upstream, removal planned for 1.0.0).
+// Both families are implemented side by side: the deprecated Thinking*
+// structs above are untouched (still emitted/consumed by existing callers),
+// and these Reasoning* structs are additive.
+
+/// Event indicating the start of a reasoning turn (wraps one or more
+/// reasoning message segments and/or encrypted reasoning values).
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningStartEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningStartEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+}
+
+/// Event indicating the start of a reasoning message's visible text content.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningMessageStartEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningMessageStartEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+    #[serde(default = "Role::reasoning")]
+    pub role: Role, // Always Role::Reasoning
+}
+
+/// Event containing a piece of reasoning message content.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningMessageContentEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningMessageContentEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+    pub delta: String,
+}
+
+/// Event indicating the end of a reasoning message's visible text content.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningMessageEndEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningMessageEndEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+}
+
+/// Event containing a complete or partial reasoning message chunk, combining
+/// start/content/end information in a single event (mirrors TextMessageChunkEvent).
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningMessageChunkEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningMessageChunkEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId", skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<MessageId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delta: Option<String>,
+}
+
+/// Event indicating the end of a reasoning turn.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningEndEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningEndEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+}
+
+/// The kind of entity an encrypted reasoning value is attached to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReasoningEncryptedValueSubtype {
+    ToolCall,
+    Message,
+}
+
+/// Event containing an opaque, provider-encrypted reasoning value (e.g. an
+/// encrypted chain-of-thought signature that must be round-tripped back to
+/// the provider but not rendered).
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's ReasoningEncryptedValueEventSchema.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReasoningEncryptedValueEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    pub subtype: ReasoningEncryptedValueSubtype,
+    #[serde(rename = "entityId")]
+    pub entity_id: String,
+    #[serde(rename = "encryptedValue")]
+    pub encrypted_value: String,
+}
+
 /// Union of all possible events in the Agent User Interaction Protocol.
 /// This enum represents the full set of events that can be exchanged
 /// between the agent and the client.
@@ -433,6 +564,22 @@ pub enum Event<StateT: AgentState = JsonValue> {
     /// Signals the completion of a step within an agent run.
     /// Contains the name of the completed step.
     StepFinished(StepFinishedEvent),
+
+    // ==================== Reasoning Events (spec catch-up 2026-07) ====================
+    /// Signals the start of a reasoning turn.
+    ReasoningStart(ReasoningStartEvent),
+    /// Signals the start of a reasoning message's visible text content.
+    ReasoningMessageStart(ReasoningMessageStartEvent),
+    /// A piece of reasoning message content.
+    ReasoningMessageContent(ReasoningMessageContentEvent),
+    /// Signals the end of a reasoning message's visible text content.
+    ReasoningMessageEnd(ReasoningMessageEndEvent),
+    /// A complete or partial reasoning message chunk.
+    ReasoningMessageChunk(ReasoningMessageChunkEvent),
+    /// Signals the end of a reasoning turn.
+    ReasoningEnd(ReasoningEndEvent),
+    /// An opaque, provider-encrypted reasoning value.
+    ReasoningEncryptedValue(ReasoningEncryptedValueEvent),
 }
 
 impl Event {
@@ -463,6 +610,13 @@ impl Event {
             Event::RunError(_) => EventType::RunError,
             Event::StepStarted(_) => EventType::StepStarted,
             Event::StepFinished(_) => EventType::StepFinished,
+            Event::ReasoningStart(_) => EventType::ReasoningStart,
+            Event::ReasoningMessageStart(_) => EventType::ReasoningMessageStart,
+            Event::ReasoningMessageContent(_) => EventType::ReasoningMessageContent,
+            Event::ReasoningMessageEnd(_) => EventType::ReasoningMessageEnd,
+            Event::ReasoningMessageChunk(_) => EventType::ReasoningMessageChunk,
+            Event::ReasoningEnd(_) => EventType::ReasoningEnd,
+            Event::ReasoningEncryptedValue(_) => EventType::ReasoningEncryptedValue,
         }
     }
 
@@ -493,6 +647,13 @@ impl Event {
             Event::RunError(e) => e.base.timestamp,
             Event::StepStarted(e) => e.base.timestamp,
             Event::StepFinished(e) => e.base.timestamp,
+            Event::ReasoningStart(e) => e.base.timestamp,
+            Event::ReasoningMessageStart(e) => e.base.timestamp,
+            Event::ReasoningMessageContent(e) => e.base.timestamp,
+            Event::ReasoningMessageEnd(e) => e.base.timestamp,
+            Event::ReasoningMessageChunk(e) => e.base.timestamp,
+            Event::ReasoningEnd(e) => e.base.timestamp,
+            Event::ReasoningEncryptedValue(e) => e.base.timestamp,
         }
     }
 }
