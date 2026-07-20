@@ -337,6 +337,15 @@ where
                     mutations.push(mutation);
                 }
             }
+            Event::ReasoningStart(_)
+            | Event::ReasoningMessageStart(_)
+            | Event::ReasoningMessageContent(_)
+            | Event::ReasoningMessageEnd(_)
+            | Event::ReasoningMessageChunk(_)
+            | Event::ReasoningEnd(_)
+            | Event::ReasoningEncryptedValue(_) => {
+                // Reasoning events are delivered through the generic on_event hook above.
+            }
             Event::StateSnapshot(e) => {
                 // Default behavior
                 self.state = e.snapshot.clone();

@@ -11,6 +11,13 @@ pub struct FunctionCall {
 }
 
 /// Message role.
+///
+/// Reasoning was added for the REASONING_MESSAGE_START event's
+/// role: "reasoning" literal (spec catch-up, see event.rs). It is not
+/// yet a Message variant — the spec's activity/reasoning message
+/// roles are a separate, larger surface (multipart message content,
+/// ActivityMessage, ReasoningMessage) intentionally left for a follow-up;
+/// see the crate-level catch-up notes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -19,6 +26,7 @@ pub enum Role {
     Assistant,
     User,
     Tool,
+    Reasoning,
 }
 
 // Utility methods for serde defaults
@@ -37,6 +45,9 @@ impl Role {
     }
     pub(crate) fn tool() -> Self {
         Self::Tool
+    }
+    pub(crate) fn reasoning() -> Self {
+        Self::Reasoning
     }
 }
 
@@ -278,6 +289,18 @@ impl Message {
                 content: content.as_ref().to_string(),
                 tool_call_id: ToolCallId::random(),
                 error: None,
+            },
+            // Reasoning is an event-level role (see ReasoningMessageStartEvent
+            // in event.rs) added for the spec catch-up; there is no
+            // corresponding Message variant yet — that's a separate,
+            // larger surface (see the crate-level catch-up notes). Rather
+            // than making this constructor fallible, fall back to an
+            // assistant-authored message carrying the same content.
+            Role::Reasoning => Self::Assistant {
+                id: id.into(),
+                content: Some(content.as_ref().to_string()),
+                name: None,
+                tool_calls: None,
             },
         }
     }
