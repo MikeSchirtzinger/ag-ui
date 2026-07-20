@@ -346,6 +346,9 @@ where
             | Event::ReasoningEncryptedValue(_) => {
                 // Reasoning events are delivered through the generic on_event hook above.
             }
+            Event::ActivitySnapshot(_) | Event::ActivityDelta(_) => {
+                // Activity events are delivered through the generic on_event hook above.
+            }
             Event::StateSnapshot(e) => {
                 // Default behavior
                 self.state = e.snapshot.clone();

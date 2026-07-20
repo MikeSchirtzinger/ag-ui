@@ -75,6 +75,12 @@ pub enum EventType {
     ReasoningEnd,
     /// Event containing an encrypted reasoning value (opaque provider payload)
     ReasoningEncryptedValue,
+
+    // ==================== Activity Events (spec catch-up 2026-07) ====================
+    /// Event containing a full snapshot of a message's activity payload
+    ActivitySnapshot,
+    /// Event containing a JSON Patch delta against a message's activity payload
+    ActivityDelta,
 }
 
 /// Base event for all events in the Agent User Interaction Protocol.
@@ -461,6 +467,44 @@ pub struct ReasoningEncryptedValueEvent {
     pub encrypted_value: String,
 }
 
+// ==================== Activity Event Structs (spec catch-up 2026-07) ====================
+
+/// Event containing a full snapshot of a message's activity payload.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's `ActivitySnapshotEventSchema`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ActivitySnapshotEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+    #[serde(rename = "activityType")]
+    pub activity_type: String,
+    pub content: JsonValue,
+    #[serde(default = "default_activity_replace")]
+    pub replace: bool,
+}
+
+fn default_activity_replace() -> bool {
+    true
+}
+
+/// Event containing a JSON Patch (RFC 6902) delta against a message's activity payload.
+///
+/// New in the AG-UI spec since this crate was last synced (2026-07 catch-up).
+/// Mirrors the TS SDK's `ActivityDeltaEventSchema`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ActivityDeltaEvent {
+    #[serde(flatten)]
+    pub base: BaseEvent,
+    #[serde(rename = "messageId")]
+    pub message_id: MessageId,
+    #[serde(rename = "activityType")]
+    pub activity_type: String,
+    pub patch: Vec<JsonValue>,
+}
+
 /// Union of all possible events in the Agent User Interaction Protocol.
 /// This enum represents the full set of events that can be exchanged
 /// between the agent and the client.
@@ -580,6 +624,12 @@ pub enum Event<StateT: AgentState = JsonValue> {
     ReasoningEnd(ReasoningEndEvent),
     /// An opaque, provider-encrypted reasoning value.
     ReasoningEncryptedValue(ReasoningEncryptedValueEvent),
+
+    // ==================== Activity Events (spec catch-up 2026-07) ====================
+    /// A full snapshot of a message's activity payload.
+    ActivitySnapshot(ActivitySnapshotEvent),
+    /// A JSON Patch delta against a message's activity payload.
+    ActivityDelta(ActivityDeltaEvent),
 }
 
 impl Event {
@@ -617,6 +667,8 @@ impl Event {
             Event::ReasoningMessageChunk(_) => EventType::ReasoningMessageChunk,
             Event::ReasoningEnd(_) => EventType::ReasoningEnd,
             Event::ReasoningEncryptedValue(_) => EventType::ReasoningEncryptedValue,
+            Event::ActivitySnapshot(_) => EventType::ActivitySnapshot,
+            Event::ActivityDelta(_) => EventType::ActivityDelta,
         }
     }
 
@@ -654,6 +706,8 @@ impl Event {
             Event::ReasoningMessageChunk(e) => e.base.timestamp,
             Event::ReasoningEnd(e) => e.base.timestamp,
             Event::ReasoningEncryptedValue(e) => e.base.timestamp,
+            Event::ActivitySnapshot(e) => e.base.timestamp,
+            Event::ActivityDelta(e) => e.base.timestamp,
         }
     }
 }

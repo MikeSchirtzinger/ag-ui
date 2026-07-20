@@ -18,6 +18,8 @@ pub struct FunctionCall {
 /// roles are a separate, larger surface (multipart message content,
 /// ActivityMessage, ReasoningMessage) intentionally left for a follow-up;
 /// see the crate-level catch-up notes.
+/// `Activity` is part of the protocol's role vocabulary. The separate
+/// `ActivityMessage` shape is not part of this scoped port.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -27,6 +29,7 @@ pub enum Role {
     User,
     Tool,
     Reasoning,
+    Activity,
 }
 
 // Utility methods for serde defaults
@@ -297,6 +300,14 @@ impl Message {
             // than making this constructor fallible, fall back to an
             // assistant-authored message carrying the same content.
             Role::Reasoning => Self::Assistant {
+                id: id.into(),
+                content: Some(content.as_ref().to_string()),
+                name: None,
+                tool_calls: None,
+            },
+            // This string-only constructor predates the spec's structured
+            // `ActivityMessage` shape and cannot supply its activity type.
+            Role::Activity => Self::Assistant {
                 id: id.into(),
                 content: Some(content.as_ref().to_string()),
                 name: None,
