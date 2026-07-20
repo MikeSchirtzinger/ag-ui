@@ -1,7 +1,7 @@
 use crate::JsonValue;
 use crate::state::AgentState;
+use crate::types::{Interrupt, MessageId, RunAgentInput, RunId, ThreadId, ToolCallId};
 use crate::types::{Message, Role};
-use crate::types::{MessageId, RunId, ThreadId, ToolCallId};
 use serde::{Deserialize, Serialize};
 
 /// Event types for AG-UI protocol
@@ -76,7 +76,10 @@ pub struct TextMessageStartEvent {
     pub base: BaseEvent,
     #[serde(rename = "messageId")]
     pub message_id: MessageId,
+    #[serde(default = "Role::assistant")]
     pub role: Role, // "assistant"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// Event containing a piece of text message content.
@@ -109,9 +112,12 @@ pub struct TextMessageChunkEvent {
     pub base: BaseEvent,
     #[serde(rename = "messageId", skip_serializing_if = "Option::is_none")]
     pub message_id: Option<MessageId>,
-    pub role: Role,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<Role>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delta: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 /// Event indicating the start of a thinking text message.
@@ -283,6 +289,10 @@ pub struct RunStartedEvent {
     pub thread_id: ThreadId,
     #[serde(rename = "runId")]
     pub run_id: RunId,
+    #[serde(rename = "parentRunId", skip_serializing_if = "Option::is_none")]
+    pub parent_run_id: Option<RunId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<RunAgentInput>,
 }
 
 /// Event indicating that a run has finished.
@@ -297,6 +307,25 @@ pub struct RunFinishedEvent {
     pub run_id: RunId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<JsonValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<RunFinishedOutcome>,
+}
+
+/// The outcome of a finished run: either a normal completion, or a pause on
+/// one or more human-in-the-loop interrupts awaiting resolution.
+///
+/// New in the AG-UI spec (spec catch-up, 2026-07). Mirrors the TS SDK's
+/// `RunFinishedOutcomeSchema` discriminated union.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum RunFinishedOutcome {
+    /// The run completed normally.
+    Success,
+    /// The run paused, awaiting resolution of one or more interrupts.
+    Interrupt {
+        /// Must contain at least one interrupt.
+        interrupts: Vec<Interrupt>,
+    },
 }
 
 /// Event indicating that a run has encountered an error.
@@ -527,6 +556,7 @@ impl TextMessageStartEvent {
             },
             message_id: message_id.into(),
             role: Role::Assistant,
+            name: None,
         }
     }
 
@@ -537,6 +567,11 @@ impl TextMessageStartEvent {
 
     pub fn with_raw_event(mut self, raw_event: JsonValue) -> Self {
         self.base.raw_event = Some(raw_event);
+        self
+    }
+
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
         self
     }
 }
